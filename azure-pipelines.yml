@@ -1,0 +1,53 @@
+# Docker
+# Build and push an image to Azure Container Registry
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  # Container registry service connection established during pipeline creation
+  dockerRegistryServiceConnection: '1bb14695-f70a-4aab-8fe6-01838fccd9d5'
+  imageRepository: 'samples/nginx'
+  containerRegistry: 'myregistry6301.azurecr.io'
+  dockerfilePath: '**/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+  # Agent VM image name
+  vmImageName: 'ubuntu-latest'
+
+stages:
+- stage: Build
+  displayName: Build and push stage
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+
+- stage: Deploy
+  displayName: Deploy to Azure Container Instance
+  jobs:
+  - job: Deploy
+    displayName: Deploy to Azure Container Instance
+    steps:
+    - task: AzureCLI@1
+      inputs:
+        azureSubscription: 'Azure subscription 1(fc997bed-d9b5-4aa5-b36c-aae8c6c06000)'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az container create -g my-group --name container6301 --image myregistry6301.azurecr.io/samples/nginx:$(tag) --dns-name-label myappurl --cpu 1 --memory 1 --registry-login-server myregistry6301.azurecr.io --registry-username myregistry6301 --registry-password mq2F62MuGq4a8+NSWxMS8BWAz//S03bflKkOZPAS26+ACRABOXid  --ports 80
+
